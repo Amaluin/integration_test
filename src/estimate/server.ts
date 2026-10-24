@@ -44,7 +44,8 @@ export async function startEstimate(opts: EstimateOptions) {
 
   const app = Fastify({ logger: opts.logger ? { level: 'info' } : false });
   await app.register(cors, { origin: true });
-  registerChaos(app);
+  const chaos = registerChaos(app);
+  let replays = 0; // сколько раз повторный запрос узнали по ключу и не создали дубль (с момента запуска)
   app.get('/health', async () => ({ ok: true }));
 
   // Команда от связующего сервиса. Повтор с тем же ключом возвращает уже созданную проверку.
@@ -61,6 +62,7 @@ export async function startEstimate(opts: EstimateOptions) {
       if (existing.request_hash !== hash) {
         return reply.code(409).send({ error: 'Idempotency-Key was already used with a different request' });
       }
+      replays++;
       return reply.code(200).send({ reviewId: existing.review_id });
     }
     const reviewId = nextNumber(db, 'reviews', 'REV');
@@ -78,6 +80,13 @@ export async function startEstimate(opts: EstimateOptions) {
       JSON.stringify(body.items),
       new Date().toISOString(),
     );
+
+    // имитация сбоя: проверка создана, а ответ до отправителя не дошёл
+    if (chaos.takeDropResponse()) {
+      reply.hijack();
+      req.raw.socket.destroy();
+      return;
+    }
     return reply.code(201).send({ reviewId });
   });
 
@@ -96,6 +105,7 @@ export async function startEstimate(opts: EstimateOptions) {
 
   app.get('/api/reviews', async () => ({
     outbox: outboxStats(db),
+    replays,
     reviews: (db.prepare('select * from reviews order by rowid desc').all() as Row[]).map(reviewView),
   }));
 

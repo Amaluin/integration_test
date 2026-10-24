@@ -84,25 +84,87 @@ function Panel(props: { title: string; subtitle: string; down?: boolean; childre
   );
 }
 
-function Chaos({ base }: { base: string }) {
+interface Subject {
+  nominative: string; // что создаёт сервис: «заявка» / «проверка»
+  accusative: string; // «заявку» / «проверку»
+  genitive: string; // «заявки» / «проверки»
+}
+const SUPPLY: Subject = { nominative: 'заявка', accusative: 'заявку', genitive: 'заявки' };
+const ESTIMATE: Subject = { nominative: 'проверка', accusative: 'проверку', genitive: 'проверки' };
+
+function chaosSteps(mode: string, s: Subject): string[] {
+  if (mode === 'down') {
+    return [
+      'Сервис отвечает ошибкой 503 на все запросы, в том числе на команды связующего сервиса.',
+      'Связующий сервис повторяет отправку с нарастающей паузой (1, 2, 4 … до 30 секунд). В панели «Связующий сервис» виден жёлтый блок с числом попыток.',
+      `Данные не теряются. После нажатия «Работает» передача завершится сама, ${s.nominative} будет создана один раз.`,
+    ];
+  }
+  if (mode === 'drop-response') {
+    return [
+      `Ближайшая команда «создать ${s.accusative}» от связующего сервиса выполнится: ${s.nominative} создастся.`,
+      `Вместо ответа соединение оборвётся. Связующий сервис не узнает, что ${s.nominative} уже есть.`,
+      'Примерно через секунду он повторит запрос с тем же ключом.',
+      `Сервис узнает ключ и вернёт уже созданную ${s.accusative}. Второй ${s.genitive} не будет.`,
+      'Режим сам вернётся в «Работает», а над списком появится зелёная плашка со счётчиком отсеянных повторов.',
+    ];
+  }
+  return [];
+}
+
+const MODE_TITLES: Record<string, string> = {
+  ok: 'Сервис работает как обычно',
+  down: 'Сервис отвечает ошибкой 503 на все запросы, пока не нажмёте «Работает»',
+  'drop-response':
+    'Один раз: запрос выполнится, но ответ потеряется. Связующий сервис повторит запрос, дубля не будет',
+};
+
+function Chaos({ base, subject }: { base: string; subject: Subject }) {
   const { data } = usePoll<{ mode: string }>(`${base}/admin/chaos`);
   const modes: [string, string][] = [
     ['ok', 'Работает'],
     ['down', 'Отключить'],
     ['drop-response', 'Потерять ответ'],
   ];
+  const steps = data ? chaosSteps(data.mode, subject) : [];
   return (
-    <div className="chaos">
-      <span>Имитация сбоя:</span>
-      {modes.map(([mode, label]) => (
-        <button
-          key={mode}
-          className={data?.mode === mode ? 'active' : ''}
-          onClick={() => send(`${base}/admin/chaos`, { mode })}
-        >
-          {label}
-        </button>
-      ))}
+    <>
+      <div className="chaos">
+        <span>Имитация сбоя:</span>
+        {modes.map(([mode, label]) => (
+          <button
+            key={mode}
+            title={MODE_TITLES[mode]}
+            className={data?.mode === mode ? 'active' : ''}
+            onClick={() => send(`${base}/admin/chaos`, { mode })}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {steps.length > 0 && (
+        <div className="note warn">
+          <b>Что произойдёт:</b>
+          <ol className="steps">
+            {steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Replays({ count, subject }: { count?: number; subject: Subject }) {
+  if (!count) return null;
+  return (
+    <div className="note ok">
+      Повторных запросов распознано и отсеяно без дублей: <b>{count}</b>
+      <div className="muted">
+        Связующий сервис присылал команду повторно (например, после потери ответа), а {subject.nominative} создана один
+        раз.
+      </div>
     </div>
   );
 }
@@ -228,9 +290,10 @@ function EstimatePanel() {
       title="Сметный отдел"
       subtitle="Проверяет потребность, указывает одобренное количество"
       down={error}
-      actions={<Chaos base={URLS.estimate} />}
+      actions={<Chaos base={URLS.estimate} subject={ESTIMATE} />}
     >
       <Outbox pending={data?.outbox?.pending} />
+      <Replays count={data?.replays} subject={ESTIMATE} />
       {data?.reviews.map((r: Json) => <ReviewCard key={r.reviewId} review={r} />)}
       {data?.reviews.length === 0 && <div className="muted">Запросов на проверку пока нет</div>}
     </Panel>
@@ -244,9 +307,10 @@ function SupplyPanel() {
       title="Снабжение"
       subtitle="Создаёт заявки на закупку и ведёт их статус"
       down={error}
-      actions={<Chaos base={URLS.supply} />}
+      actions={<Chaos base={URLS.supply} subject={SUPPLY} />}
     >
       <Outbox pending={data?.outbox?.pending} />
+      <Replays count={data?.replays} subject={SUPPLY} />
       {data?.requests.map((r: Json) => (
         <div className="card" key={r.procurementId}>
           <div className="row">

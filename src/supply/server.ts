@@ -63,6 +63,7 @@ export async function startSupply(opts: SupplyOptions) {
   const app = Fastify({ logger: opts.logger ? { level: 'info' } : false });
   await app.register(cors, { origin: true });
   const chaos = registerChaos(app);
+  let replays = 0; // сколько раз повторный запрос узнали по ключу и не создали дубль (с момента запуска)
   app.get('/health', async () => ({ ok: true }));
 
   // Создание заявки по команде связующего сервиса. Защита от дублей:
@@ -80,6 +81,7 @@ export async function startSupply(opts: SupplyOptions) {
       if (existing.request_hash !== hash) {
         return reply.code(409).send({ error: 'Idempotency-Key was already used with a different request' });
       }
+      replays++;
       return reply.code(200).send({ procurementId: existing.procurement_id });
     }
 
@@ -126,6 +128,7 @@ export async function startSupply(opts: SupplyOptions) {
 
   app.get('/api/procurement-requests', async () => ({
     outbox: outboxStats(db),
+    replays,
     requests: (db.prepare('select * from requests order by rowid desc').all() as Row[]).map(requestView),
   }));
 

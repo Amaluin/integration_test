@@ -33,6 +33,10 @@ button.primary:hover { background: #1d4ed8; }
 .badge.REJECTED { background: #fee2e2; color: #b91c1c; }
 .note { padding: 8px 10px; border-radius: 8px; font-size: 13px; }
 .note.warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+.note.ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+.note.ok .muted { color: #15803d; margin-top: 2px; }
+.steps { margin: 4px 0 0; padding-left: 20px; }
+.steps li { margin: 2px 0; }
 .history { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: #374151; }
 .history time { color: #9ca3af; margin-right: 4px; }
 summary { cursor: pointer; font-size: 13px; color: #4b5563; }

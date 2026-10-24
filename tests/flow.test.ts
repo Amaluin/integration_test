@@ -84,10 +84,26 @@ describe('сбои', () => {
 
     expect(command().attempts).toBeGreaterThanOrEqual(1); // действительно был повтор
     expect(count(stack.supply.db, 'requests')).toBe(1);
+    expect((await getJson(`${stack.supply.url}/api/procurement-requests`)).replays).toBe(1);
     const { procurementId } = await flowOf(stack, needId);
     expect(procurementId).toBe(
       (stack.supply.db.prepare('select procurement_id as id from requests').get() as any).id,
     );
+  });
+
+  it('проверка создана, а ответ сметов потерян: повтор не создаёт вторую проверку', async () => {
+    stack = await startStack();
+    await setChaos(stack.estimate.url, 'drop-response');
+    await createNeed(stack);
+
+    const command = () =>
+      stack.hub.db.prepare("select status, attempts from commands where type = 'create_review'").get() as any;
+    await waitFor(() => command()?.status === 'done', 8000, 'повтор команды завершился успешно');
+
+    expect(command().attempts).toBeGreaterThanOrEqual(1);
+    expect(count(stack.estimate.db, 'reviews')).toBe(1);
+    expect((await getJson(`${stack.estimate.url}/api/reviews`)).replays).toBe(1);
+    expect((await getJson(`${stack.estimate.url}/admin/chaos`)).mode).toBe('ok'); // режим сам сбросился
   });
 
   it('связующий сервис недоступен: потребность сохраняется и доходит позже', async () => {
