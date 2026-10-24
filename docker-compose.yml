@@ -1,0 +1,57 @@
+x-app: &app
+  build: .
+  image: integration-poc
+  restart: unless-stopped
+
+services:
+  hub:
+    <<: *app
+    command: npx tsx src/hub/main.ts
+    ports: ["3000:3000"]
+    environment:
+      PORT: "3000"
+      DB_PATH: /data/hub.db
+      ESTIMATE_URL: http://estimate:3002
+      SUPPLY_URL: http://supply:3003
+    volumes: ["hub-data:/data"]
+
+  pto:
+    <<: *app
+    command: npx tsx src/pto/main.ts
+    ports: ["3001:3001"]
+    environment:
+      PORT: "3001"
+      DB_PATH: /data/pto.db
+      HUB_URL: http://hub:3000
+    volumes: ["pto-data:/data"]
+
+  estimate:
+    <<: *app
+    command: npx tsx src/estimate/main.ts
+    ports: ["3002:3002"]
+    environment:
+      PORT: "3002"
+      DB_PATH: /data/estimate.db
+      HUB_URL: http://hub:3000
+    volumes: ["estimate-data:/data"]
+
+  supply:
+    <<: *app
+    command: npx tsx src/supply/main.ts
+    ports: ["3003:3003"]
+    environment:
+      PORT: "3003"
+      DB_PATH: /data/supply.db
+      HUB_URL: http://hub:3000
+    volumes: ["supply-data:/data"]
+
+  web:
+    <<: *app
+    command: npx vite preview --config web/vite.config.ts
+    ports: ["5173:5173"]
+
+volumes:
+  hub-data:
+  pto-data:
+  estimate-data:
+  supply-data:

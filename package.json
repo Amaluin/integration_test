@@ -1,0 +1,37 @@
+{
+  "name": "integration-poc",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "hub": "tsx src/hub/main.ts",
+    "pto": "tsx src/pto/main.ts",
+    "estimate": "tsx src/estimate/main.ts",
+    "supply": "tsx src/supply/main.ts",
+    "services": "concurrently -n hub,pto,estimate,supply -c blue,green,yellow,magenta \"npm:hub\" \"npm:pto\" \"npm:estimate\" \"npm:supply\"",
+    "web": "vite --config web/vite.config.ts",
+    "web:build": "vite build --config web/vite.config.ts",
+    "dev": "concurrently -n services,web \"npm:services\" \"npm:web\"",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.3.1",
+    "better-sqlite3": "^13.0.3",
+    "fastify": "^5.12.7",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^10.0.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  }
+}
